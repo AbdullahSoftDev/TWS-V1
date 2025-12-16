@@ -1,14 +1,14 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
-import { LearningPath } from "./types";
-import { GEMINI_PRO_MODEL, GEMINI_IMAGE_MODEL, GEMINI_LIVE_MODEL } from "./constants";
 
 export const getGenAIInstance = () => {
-  const apiKey = localStorage.getItem("gemini_api_key") || process.env.API_KEY || '';
+  const apiKey = localStorage.getItem("gemini_api_key") || import.meta.env.VITE_GEMINI_API_KEY || '';
+  if (!apiKey) {
+    throw new Error('Gemini API key not found. Please add it in Settings.');
+  }
   return new GoogleGenAI({ apiKey });
 };
 
-export const generateText = async (prompt: string, model = GEMINI_PRO_MODEL) => {
+export const generateText = async (prompt: string, model = "gemini-2.5-flash") => {
   const ai = getGenAIInstance();
   const response = await ai.models.generateContent({
     model: model,
@@ -20,10 +20,11 @@ export const generateText = async (prompt: string, model = GEMINI_PRO_MODEL) => 
 export const generateImage = async (prompt: string, config: any = {}) => {
   const ai = getGenAIInstance();
   const response = await ai.models.generateContent({
-    model: GEMINI_IMAGE_MODEL,
+    model: "gemini-2.5-flash-image",
     contents: { parts: [{ text: prompt }] },
     config: { imageConfig: config }
   });
+  
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
       return `data:image/png;base64,${part.inlineData.data}`;
@@ -50,22 +51,5 @@ export class GeminiService {
     const prompt = `Simulate the execution of this ${language} code and capture the output. \n\nCode:\n${code}\n\nOutput:`;
     const { text } = await generateText(prompt);
     return text;
-  }
-
-  async generateLearningPaths(subject: string): Promise<LearningPath[]> {
-     const prompt = `Create a learning path for "${subject}". Return JSON. Schema: Array of { id, title, description, topics: Array of { id, title, description, lessons: Array of { id, title, topic } } }.`;
-     const ai = getGenAIInstance();
-     const response = await ai.models.generateContent({
-        model: GEMINI_PRO_MODEL,
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-     });
-     try {
-         const data = JSON.parse(response.text || "[]");
-         return Array.isArray(data) ? data : [data];
-     } catch (e) {
-         console.error(e);
-         return [];
-     }
   }
 }
